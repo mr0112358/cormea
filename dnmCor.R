@@ -34,6 +34,6 @@ dnmCor = function(simdata,nsamp = 199){
     mean((Xstar * Ystar[perm,]) %*% SimpVec)
   },mc.cores = detectCores())
   pvalue = sum(abs(unlist(alldnmcor, use.names = FALSE))>=abs(dnmcor))/nsamp
-  list(dnmcorr = dnmcor, pvalue = pvalue, unlist(alldnmcor, use.names = FALSE))
+#  list(dnmcorr = dnmcor, pvalue = pvalue, unlist(alldnmcor, use.names = FALSE))
 }
 

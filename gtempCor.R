@@ -23,5 +23,5 @@ allgtempcor = mclapply(gmap, function(perm){
   SimpVec %*% vapply(1:(g+1), function(j) cor(X[,j],Y[perm,j]), numeric(1))
 },mc.cores = detectCores())
 pvalue = sum(abs(unlist(allgtempcor, use.names = FALSE))>=abs(as.numeric(rho)))/nsamp
-list(gtemprho = rho, pvalue = pvalue, unlist(allgtempcor, use.names = FALSE))
+#list(gtemprho = rho, pvalue = pvalue, unlist(allgtempcor, use.names = FALSE))
 }

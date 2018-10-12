@@ -33,8 +33,5 @@ FPCAdCor = function(simdata,nsamp = 199){
     dcov(Xhat,Yhat[perm,])/denom
   },mc.cores = detectCores())
   pvalue = sum(unlist(alldcor, use.names = FALSE)>=dcorXY)/nsamp
-  list(dcor = dcorXY, pvalue = pvalue, unlist(alldcor, use.names = FALSE))
+  #list(dcor = dcorXY, pvalue = pvalue, unlist(alldcor, use.names = FALSE))
 }
-
-
-

@@ -60,5 +60,5 @@ FdCor = function(simdata,nsamp = 199){
     sum(SimpMat*dcovXY_perm)/denom
   },mc.cores = detectCores())
   pvalue = sum(unlist(allFdcor, use.names = FALSE)>=fdcorXY)/nsamp
-  list(fdcor = fdcorXY, pvalue = pvalue,unlist(allFdcor, use.names = FALSE))
+#  list(fdcor = fdcorXY, pvalue = pvalue,unlist(allFdcor, use.names = FALSE))
 }
