@@ -1,0 +1,89 @@
+---
+title: "fHHG Simulation"
+output: html_notebook
+---
+
+```{r}
+rm(list = ls())
+library(mvtnorm)
+library(parallel)
+```
+
+### Generate sample coefficients $A_{ik}$, $B_{ik}$, $k=1,...,m$, $i = 1,...,n$, $m=8$, $n=100$
+
+```{r}
+rho = 0.6
+sigma = matrix(c(1,rho,rho,1), ncol=2)
+
+n=100
+m=8
+
+sampleCoefRaw = array(t(mapply(function(x) rmvnorm(n,sigma = 4^(-x+2)*sigma),1:m)),dim = c(m,2,n))
+sampleCoef = lapply(seq(dim(sampleCoefRaw)[3]), function(x) sampleCoefRaw[ , , x])
+rm(sampleCoefRaw)
+```
+
+### Adjacent Matrices of X and Y
+```{r}
+AdjMatX = vapply(1:n,
+       function(k) {
+         vapply(1:n,function(l) {
+           norm(sampleCoef[[k]][,1]-sampleCoef[[l]][,1],type = "2")
+                     },
+         numeric(1))
+       },
+numeric(n))
+
+AdjMatY = vapply(1:n,
+       function(k) {
+         vapply(1:n,function(l) {
+           norm(sampleCoef[[k]][,2]-sampleCoef[[l]][,2],type = "2")
+                     },
+         numeric(1))
+       },
+numeric(n))
+```
+
+###
+```{r}
+fHHG = function(AdjMatX,AdjMatY,perm){
+AdjMatY = AdjMatY[perm,perm]
+n=nrow(AdjMatX)
+sum(vapply(1:n,
+       function(i){
+         sum(vapply((1:n)[-i],
+                function(j){
+                  logicX = ifelse(AdjMatX[i,][-c(i,j)]<=AdjMatX[i,j],1,0)
+                  logicY = ifelse(AdjMatY[i,][-c(i,j)]<=AdjMatY[i,j],2,0)
+                  logicALL = logicX+logicY
+                  A11 = length(which(logicALL == 3))
+                  A12 = length(which(logicALL == 1))
+                  A21 = length(which(logicALL == 2))
+                  A22 = n-2-A11-A12-A21
+                  denom = (A11+A12)/n*(A11+A21)/n*(A21+A22)/n*(A12+A22)/n
+                  ifelse(denom == 0, 0, ((A12*A21-A11*A22)/n)^2/denom)
+                },numeric(1)
+                ))
+       },numeric(1)
+       ))/n^2
+}
+```
+
+```{r}
+permtestfHHG = function(AdjMatX,AdjMatY,nsamp,value){
+  n = nrow(AdjMatX)
+  gmap = split(replicate(nsamp,sample.int(n)),rep(1:nsamp, each = n))
+  allfHHG = mclapply(gmap, function(perm){
+    fHHG(AdjMatX,AdjMatY,perm)
+},mc.cores = 8) ## Max Num of CPU cores we have
+  result = list()
+  result$pvalue = sum(unlist(allfHHG, use.names = FALSE)>=value)/nsamp
+  result$all = unlist(allfHHG, use.names = FALSE)
+  result
+}
+```
+
+```{r}
+value = fHHG(AdjMatX,AdjMatY,1:n)
+permtestfHHG(AdjMatX,AdjMatY,200,value)
+```

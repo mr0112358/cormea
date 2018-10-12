@@ -1,0 +1,94 @@
+---
+title: "FdCor Simulation"
+output: html_notebook
+---
+
+```{r}
+rm(list = ls())
+library(mvtnorm)
+library(energy)
+library(cubature)
+library(parallel)
+```
+
+### Generate sample coefficients $A_{ik}$, $B_{ik}$, $k=1,...,m$, $i = 1,...,n$, $m=8$, $n=100$
+
+```{r}
+rho = 0.8
+sigma = matrix(c(1,rho,rho,1), ncol=2)
+
+n=100
+m=8
+
+sampleCoefRaw = array(t(mapply(function(x) rmvnorm(n,sigma = 4^(-x+2)*sigma),1:m)),dim = c(m,2,n))
+sampleCoef = lapply(seq(dim(sampleCoefRaw)[3]), function(x) sampleCoefRaw[ , , x])
+rm(sampleCoefRaw)
+```
+
+### Sample Functions Generator
+
+
+```{r}
+sqrt2 = sqrt(2)
+sampleFunGen = function(x){
+  list(
+  X = function(t){
+    #sqrt(2)*(x[1,1]*cos(2*pi*t)+x[2,1]*sin(2*pi*t)+x[3,1]*cos(4*pi*t)+x[4,1]*sin(4*pi*t)+x[5,1]*cos(6*pi*t)+x[6,1]*sin(6*pi*t)+x[7,1]*cos(8*pi*t)+x[8,1]*sin(8*pi*t))
+    sqrt2*sum(x[1,1]*cos(2*pi*t),x[2,1]*sin(2*pi*t),x[3,1]*cos(4*pi*t),x[4,1]*sin(4*pi*t),x[5,1]*cos(6*pi*t),x[6,1]*sin(6*pi*t),x[7,1]*cos(8*pi*t),x[8,1]*sin(8*pi*t))
+  },
+  
+  Y = function(t){
+    #sqrt(2)*(x[1,2]*cos(2*pi*t)+x[2,2]*sin(2*pi*t)+x[3,2]*cos(4*pi*t)+x[4,2]*sin(4*pi*t)+x[5,2]*cos(6*pi*t)+x[6,2]*sin(6*pi*t)+x[7,2]*cos(8*pi*t)+x[8,2]*sin(8*pi*t))
+    sqrt2*sum(x[1,2]*cos(2*pi*t),x[2,2]*sin(2*pi*t),x[3,2]*cos(4*pi*t),x[4,2]*sin(4*pi*t),x[5,2]*cos(6*pi*t),x[6,2]*sin(6*pi*t),x[7,2]*cos(8*pi*t),x[8,2]*sin(8*pi*t))
+  }
+  )
+  
+  #list(X,Y)
+}
+```
+
+### Fdcor function
+```{r}
+fdcor = function(Coef,permX,permY){
+  sampleFun = lapply(Coef,sampleFunGen)
+  X = function(s){
+    vapply(permX, function(x){
+      sampleFun[[x]][[1]](s)
+    },numeric(1))
+  }
+
+  Y = function(t){
+    vapply(permY, function(x){
+      sampleFun[[x]][[2]](t)
+    },numeric(1))
+  }
+  
+pcubature(function(x){matrix(apply(x,2,function(t) dcov(X(t[1]),Y(t[2]))),ncol = ncol(x))},c(0,0),c(1,1), tol=1e-3,vectorInterface = TRUE)$integral / sqrt(pcubature(function(x){matrix(apply(x,2,function(t) dcov(X(t[1]),X(t[2]))),ncol = ncol(x))},c(0,0),c(1,1), tol=1e-3,vectorInterface = TRUE)$integral * pcubature(function(x){matrix(apply(x,2,function(t) dcov(Y(t[1]),Y(t[2]))),ncol = ncol(x))},c(0,0),c(1,1), tol=1e-3,vectorInterface = TRUE)$integral)
+}
+```
+
+## Permutation test function for fdcor, return p-value
+Note: we could change the number of CPU cores for parallel computing
+
+```{r}
+permtestdcor = function(sampleCoef,nsamp=200,value){
+  n = length(sampleCoef)
+  gmap = split(replicate(nsamp,sample.int(n)),rep(1:nsamp, each = n))
+  allFdcor = mclapply(gmap, function(perm){
+    #thisSampCoef = lapply(1:n,function(x) cbind(sampleCoef[[x]][,1], sampleCoef[perm][[x]][,2]))
+    fdcor(sampleCoef,1:n,perm)
+},mc.cores = 8) ## Max Num of CPU cores we have
+  pvalue = sum(unlist(allFdcor, use.names = FALSE)>=value)/nsamp
+  list(pvalue,unlist(allFdcor, use.names = FALSE))
+}
+```
+
+
+```{r}
+fdcorValue = fdcor(sampleCoef,1:n,1:n)
+permtestdcor(sampleCoef,200,fdcorValue)
+```
+
+
+
+
